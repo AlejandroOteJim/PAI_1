@@ -1,0 +1,50 @@
+package crypto;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.Base64;
+
+public class HMACSigner {
+
+    // Se especifica el algoritmo requerido por el proyecto
+    private static final String ALGORITHM = "HmacSHA256";
+
+    /**
+     * Genera una clave segura de 256 bits usando un PRNG criptográficamente seguro.
+     */
+
+    //RS2. Garantía de Integridad y Autenticidad de Transacciones
+    public static byte[] generate256BitKey() {
+        byte[] key = new byte[32]; // 32 bytes * 8 bits/byte = 256 bits
+
+        //El proyecto exige que las claves se generen mediante un PRNG (Generador de Números Pseudoaleatorios) seguro.
+        // En Java, la clase SecureRandom está diseñada específicamente para esto
+
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextBytes(key); // Rellena el array con valores aleatorios seguros
+        return key;
+    }
+
+    /**
+     * Genera la firma HMAC-SHA256 a partir de los datos y la clave.
+     */
+    public static String calculateHmac(String data, byte[] key) {
+        try {
+            // Inicializamos el objeto Mac con el algoritmo HMAC-SHA256
+            Mac mac = Mac.getInstance(ALGORITHM);
+            SecretKeySpec secretKeySpec = new SecretKeySpec(key, ALGORITHM);
+            mac.init(secretKeySpec);
+
+            // Calculamos la firma de los datos (el mensaje JSON de la transacción)
+            byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+
+            // Devolvemos la firma codificada en Base64 para facilitar su envío en texto plano
+            return Base64.getEncoder().encodeToString(hmacBytes);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error al calcular HMAC-SHA256", e);
+        }
+    }
+}
