@@ -11,6 +11,7 @@ import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.PoolOptions;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
+import org.example.crypto.PasswordHasher;
 
 public class SecBankVerticle extends AbstractVerticle {
     private Pool client;
@@ -56,8 +57,8 @@ public class SecBankVerticle extends AbstractVerticle {
             try {
                 JsonObject payload = ctx.body().asJsonObject();
                 String username = payload.getString("username");
+                String password = payload.getString("password");
 
-                // Consulta directa a la base de datos, igual que hacías con los sensores
                 client.preparedQuery("SELECT * FROM users WHERE username = ?")
                         .execute(Tuple.of(username))
                         .onSuccess(rows -> {
@@ -67,15 +68,20 @@ public class SecBankVerticle extends AbstractVerticle {
                                 return;
                             }
 
-                            // Extraemos los datos del usuario de la fila devuelta
                             Row row = rows.iterator().next();
-                            int failedAttempts = row.getInteger("failed_attempts");
+                            String storedSalt = row.getString("salt");
+                            String storedHash = row.getString("password_hash");
 
-                            // Aquí meteremos la comprobación de si está bloqueado (locked_until)
-                            // y la validación del Hash.
+                            boolean passwordOk = PasswordHasher.verifyPassword(password, storedSalt, storedHash);
+
+                            if (!passwordOk) {
+                                ctx.response().setStatusCode(401).putHeader("content-type", "application/json")
+                                        .end(new JsonObject().put("error", "Credenciales incorrectas").encode());
+                                return;
+                            }
 
                             ctx.response().setStatusCode(200).putHeader("content-type", "application/json")
-                                    .end(new JsonObject().put("status", "Usuario encontrado en DB!").encode());
+                                    .end(new JsonObject().put("status", "Login correcto").encode());
                         })
                         .onFailure(err -> ctx.response().setStatusCode(500)
                                 .end(new JsonObject().put("error", err.getMessage()).encode()));
