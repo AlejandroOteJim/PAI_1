@@ -47,4 +47,22 @@ public class HMACSigner {
             throw new RuntimeException("Error al calcular HMAC-SHA256", e);
         }
     }
+
+    public static boolean verifyHmac(String data, String receivedHmacBase64, byte[] key) {
+        try {
+            // 1. Calculamos cómo debería ser la firma con los datos recibidos
+            String expectedHmacBase64 = calculateHmac(data, key);
+
+            // 2. Decodificamos ambas firmas de Base64 a arrays de bytes crudos
+            byte[] expectedMacBytes = Base64.getDecoder().decode(expectedHmacBase64);
+            byte[] receivedMacBytes = Base64.getDecoder().decode(receivedHmacBase64);
+
+            // 3. Comparamos en tiempo constante
+            return ConstantTimeComparer.isEquals(expectedMacBytes, receivedMacBytes);
+
+        } catch (IllegalArgumentException e) {
+            // Si el Base64 que envía el atacante tiene un formato inválido, fallamos con seguridad
+            return false;
+        }
+    }
 }
