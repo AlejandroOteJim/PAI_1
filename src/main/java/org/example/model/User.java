@@ -68,10 +68,7 @@ public class User {
         this.locked_until = locked_until;
     }
 
-    // Funcion para saber si el usuario esta bloqueado o no
-    public boolean isLocked() {
-        return locked_until != null && locked_until.isAfter(LocalDateTime.now());
-    }
+
 }
 
 
