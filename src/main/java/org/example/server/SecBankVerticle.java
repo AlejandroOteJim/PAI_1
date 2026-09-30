@@ -92,6 +92,43 @@ public class SecBankVerticle extends AbstractVerticle {
             }
         });
 
+        router.post("/api/v1/register").handler(ctx -> {
+            try {
+                JsonObject payload = ctx.body().asJsonObject();
+                String username = payload.getString("username");
+                String password = payload.getString("password");
+
+                if (username == null || username.isBlank() || password == null || password.isBlank()) {
+                    ctx.response().setStatusCode(400).putHeader("content-type", "application/json")
+                            .end(new JsonObject().put("error", "username y password son obligatorios").encode());
+                    return;
+                }
+
+                String salt = PasswordHasher.generateSalt();
+                String passwordHash = PasswordHasher.hashPassword(password, salt);
+
+                client.preparedQuery("INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)")
+                        .execute(Tuple.of(username, passwordHash, salt))
+                        .onSuccess(rows -> {
+                            ctx.response().setStatusCode(201).putHeader("content-type", "application/json")
+                                    .end(new JsonObject().put("status", "Usuario registrado correctamente").encode());
+                        })
+                        .onFailure(err -> {
+                            if (err.getMessage() != null && err.getMessage().contains("Duplicate entry")) {
+                                ctx.response().setStatusCode(409).putHeader("content-type", "application/json")
+                                        .end(new JsonObject().put("error", "El usuario ya existe").encode());
+                            } else {
+                                ctx.response().setStatusCode(500).putHeader("content-type", "application/json")
+                                        .end(new JsonObject().put("error", err.getMessage()).encode());
+                            }
+                        });
+
+            } catch (Exception e) {
+                ctx.response().setStatusCode(400).putHeader("content-type", "application/json")
+                        .end(new JsonObject().put("error", "Error procesando JSON").encode());
+            }
+        });
+
         return vertx.createHttpServer().requestHandler(router).listen(8080);
     }
 
