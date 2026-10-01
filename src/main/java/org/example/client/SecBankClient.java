@@ -136,7 +136,10 @@ public class SecBankClient {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(hmacKey, "HmacSHA256"));
         mac.update((timestamp + "\n" + nonce + "\n").getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(mac.doFinal(body));
+
+        // Cambiamos a Base64 para que coincida exactamente con el servidor
+        byte[] hmacBytes = mac.doFinal(body);
+        return java.util.Base64.getEncoder().encodeToString(hmacBytes);
     }
 
     // ---------- HTTP ----------
@@ -153,4 +156,5 @@ public class SecBankClient {
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
         return new Response(res.statusCode(), res.body());
     }
+
 }
