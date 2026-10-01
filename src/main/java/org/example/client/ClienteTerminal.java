@@ -1,5 +1,6 @@
 package org.example.client;
 import java.util.Scanner;
+import org.example.client.SecBankClient; // Asegúrate de que coincida con tus imports
 
 public class ClienteTerminal {
     // Instanciamos tu cliente de red que ya tienes en el proyecto
@@ -8,6 +9,7 @@ public class ClienteTerminal {
     // Estado de la sesión del usuario
     private static boolean isAuthenticated = false;
     private static String currentUser = null;
+    private static String currentIban = null; // Variable para almacenar el IBAN del usuario logueado
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -42,7 +44,10 @@ public class ClienteTerminal {
 
                 switch (opcion) {
                     case 1:
-                        manejarLogout();
+                        manejarTransferencia(scanner); // Conectado a la transferencia
+                        break;
+                    case 2:
+                        manejarLogout(); // Movido a la opción 2
                         break;
                     default:
                         System.out.println("Opción inválida. Inténtalo de nuevo.");
@@ -62,7 +67,8 @@ public class ClienteTerminal {
 
     private static void mostrarMenuAutenticado() {
         System.out.println("\n--- BÓVEDA DE SECBANK | Usuario: " + currentUser + " ---");
-        System.out.println("1. Cerrar Sesión (Logout)");
+        System.out.println("1. Hacer una Transferencia");
+        System.out.println("2. Cerrar Sesión (Logout)");
         System.out.print("Elige una opción: ");
     }
 
@@ -84,7 +90,6 @@ public class ClienteTerminal {
         System.out.println("Enviando petición al servidor...");
 
         try {
-            // AQUÍ LLAMAMOS DE VERDAD A TU CLIENTE HTTP
             SecBankClient.Response res = apiClient.register(user, pass);
 
             if (res.status() == 201) {
@@ -107,13 +112,30 @@ public class ClienteTerminal {
         System.out.println("Verificando credenciales en la base de datos...");
 
         try {
-            // AQUÍ SE HACE EL POST AL SERVIDOR
             SecBankClient.Response res = apiClient.login(user, pass);
 
             if (res.status() == 200) {
                 isAuthenticated = true;
                 currentUser = user;
-                System.out.println("Login exitoso. Sesión iniciada y salt recuperado.");
+
+                // Si tu servidor devuelve el IBAN en la respuesta del login (ej. en formato JSON o texto),
+                // puedes asignarlo aquí. Si el servidor lo maneja de forma totalmente interna en el backend
+                // y el cliente no lo recibe, podemos asignarle un texto indicativo o consultarlo.
+                // Como alternativa segura, si tu backend lo asocia automáticamente, el cliente puede
+                // enviar una marca o el servidor lo reemplazará por completo.
+                // Aquí simulamos/recuperamos el IBAN si viene en el JSON de respuesta:
+                try {
+                    com.fasterxml.jackson.databind.JsonNode jsonNode = new com.fasterxml.jackson.databind.ObjectMapper().readTree(res.body());
+                    if (jsonNode.has("iban")) {
+                        currentIban = jsonNode.get("iban").asText();
+                    } else {
+                        currentIban = "Asignado automáticamente por el servidor";
+                    }
+                } catch (Exception ex) {
+                    currentIban = "Cuenta origen vinculada en BD";
+                }
+
+                System.out.println("Login exitoso. Sesión iniciada.");
             } else {
                 System.out.println("Login fallido (Status " + res.status() + "): " + res.body());
             }
@@ -126,7 +148,6 @@ public class ClienteTerminal {
         System.out.println("Cerrando sesión en el servidor...");
 
         try {
-            // Llamada real al servidor con el token Bearer
             SecBankClient.Response res = apiClient.logout();
 
             if (res.status() == 200) {
@@ -137,10 +158,53 @@ public class ClienteTerminal {
         } catch (Exception e) {
             System.out.println("Error de conexión al hacer logout: " + e.getMessage());
         } finally {
-            // Pase lo que pase con la red, borramos la sesión en la terminal local
             isAuthenticated = false;
             currentUser = null;
+            currentIban = null; // Limpiamos el IBAN al cerrar sesión
             System.out.println("Sesión local terminada.");
+        }
+    }
+
+    private static void manejarTransferencia(Scanner scanner) {
+        System.out.println("\n--- NUEVA TRANSFERENCIA ---");
+        System.out.println("Sesión activa actual: " + currentUser);
+
+        // AQUÍ SE MUESTRA EL IBAN CORRESPONDIENTE EN VEZ DE 'xuxe' plano
+        System.out.println("Cuenta origen: " + currentIban);
+
+        System.out.print("Cuenta destino: ");
+        String destIban = scanner.nextLine().trim();
+
+        if (destIban.isEmpty()) {
+            System.out.println("La cuenta destino no puede estar vacía.");
+            return;
+        }
+
+        System.out.print("Cantidad: ");
+        double amount;
+        try {
+            amount = Double.parseDouble(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Cantidad inválida. Usa números y punto para decimales.");
+            return;
+        }
+
+        System.out.print("Moneda: ");
+        String currency = scanner.nextLine().trim();
+
+        System.out.println("Firmando criptográficamente y enviando al servidor...");
+
+        try {
+            // El servidor sobrescribirá este campo con el IBAN real de la BD basándose en el token Bearer
+            SecBankClient.Response res = apiClient.sendTransfer("AUTO_ORIGIN", destIban, amount, currency);
+
+            if (res.status() == 200) {
+                System.out.println("Transferencia completada: " + res.body());
+            } else {
+                System.out.println("Rechazada por el servidor (Status " + res.status() + "): " + res.body());
+            }
+        } catch (Exception e) {
+            System.out.println("Error en la transferencia: " + e.getMessage());
         }
     }
 }

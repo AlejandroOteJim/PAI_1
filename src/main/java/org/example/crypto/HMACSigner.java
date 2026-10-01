@@ -14,14 +14,10 @@ public class HMACSigner {
     /**
      * Genera una clave segura de 256 bits usando un PRNG criptográficamente seguro.
      */
-
-    //RS2. Garantía de Integridad y Autenticidad de Transacciones
     public static byte[] generate256BitKey() {
         byte[] key = new byte[32]; // 32 bytes * 8 bits/byte = 256 bits
 
-        //El proyecto exige que las claves se generen mediante un PRNG (Generador de Números Pseudoaleatorios) seguro.
-        // En Java, la clase SecureRandom está diseñada específicamente para esto
-
+        // El proyecto exige que las claves se generen mediante un PRNG seguro.
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextBytes(key); // Rellena el array con valores aleatorios seguros
         return key;
@@ -37,10 +33,10 @@ public class HMACSigner {
             SecretKeySpec secretKeySpec = new SecretKeySpec(key, ALGORITHM);
             mac.init(secretKeySpec);
 
-            // Calculamos la firma de los datos (el mensaje JSON de la transacción)
+            // Calculamos la firma de los datos (el mensaje completo: timestamp + nonce + body)
             byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
-            // Devolvemos la firma codificada en Base64 para facilitar su envío en texto plano
+            // Devolvemos la firma codificada en Base64
             return Base64.getEncoder().encodeToString(hmacBytes);
 
         } catch (Exception e) {
