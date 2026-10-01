@@ -118,12 +118,6 @@ public class ClienteTerminal {
                 isAuthenticated = true;
                 currentUser = user;
 
-                // Si tu servidor devuelve el IBAN en la respuesta del login (ej. en formato JSON o texto),
-                // puedes asignarlo aquí. Si el servidor lo maneja de forma totalmente interna en el backend
-                // y el cliente no lo recibe, podemos asignarle un texto indicativo o consultarlo.
-                // Como alternativa segura, si tu backend lo asocia automáticamente, el cliente puede
-                // enviar una marca o el servidor lo reemplazará por completo.
-                // Aquí simulamos/recuperamos el IBAN si viene en el JSON de respuesta:
                 try {
                     com.fasterxml.jackson.databind.JsonNode jsonNode = new com.fasterxml.jackson.databind.ObjectMapper().readTree(res.body());
                     if (jsonNode.has("iban")) {

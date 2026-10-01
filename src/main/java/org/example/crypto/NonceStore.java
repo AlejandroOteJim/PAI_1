@@ -35,12 +35,4 @@ public class NonceStore {
                     return Future.failedFuture(err);
                 });
     }
-
-    /** Opcional: borra nonces fuera de la ventana de validez, para no acumular basura. */
-    public static Future<Void> purgeOldNonces(Pool client) {
-        long cutoff = Instant.now().getEpochSecond() - TIME_WINDOW_SECONDS;
-        return client.preparedQuery("DELETE FROM nonces WHERE timestamp < ?")
-                .execute(Tuple.of(cutoff))
-                .mapEmpty();
-    }
 }
