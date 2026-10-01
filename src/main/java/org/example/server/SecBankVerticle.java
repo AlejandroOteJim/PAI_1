@@ -267,7 +267,7 @@ public class SecBankVerticle extends AbstractVerticle {
 
             String sessionId = authHeader.substring(7);
 
-            // CORREGIDO: Usamos JOIN para relacionar sessions con users y obtener el username correctamente
+
             client.preparedQuery("SELECT s.hmac_key, u.username FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_id = ? AND s.active = TRUE")
                     .execute(Tuple.of(sessionId))
                     .onSuccess(rows -> {
