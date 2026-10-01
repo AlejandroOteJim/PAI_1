@@ -65,17 +65,29 @@ public class SecBankClient {
         Response r = postJson(API + "/login", Map.of("username", username, "password", password), false);
         if (r.status() == 200) {
             JsonNode n = mapper.readTree(r.body());
-            // Hasta que A implemente sesiones, la respuesta no trae estos campos.
-            if (n.hasNonNull("token")) token = n.get("token").asText();
-            // OJO: recibir la clave en claro por HTTP es un punto debil. Comentar con B como se deriva.
-            if (n.hasNonNull("hmacKey")) hmacKey = HexFormat.of().parseHex(n.get("hmacKey").asText());
+
+            // 1. Tu servidor envía "session_id", así que buscamos eso
+            if (n.hasNonNull("session_id")) {
+                this.token = n.get("session_id").asText();
+            }
+
+            // 2. Tu servidor envía "hmac_key" en Base64, así que buscamos eso
+            if (n.hasNonNull("hmac_key")) {
+                this.hmacKey = java.util.Base64.getDecoder().decode(n.get("hmac_key").asText());
+            }
         }
         return r;
     }
 
     public Response logout() throws Exception {
-        Response r = postJson(API + "/logout", Map.of(), true);
-        token = null;
+        // Aseguramos que no sea null para evitar que Map.of() falle
+        String idSesion = (this.token != null) ? this.token : "";
+
+        // Enviamos el token dentro del JSON como "session_id"
+        Response r = postJson(API + "/logout", Map.of("session_id", idSesion), true);
+
+        // Borramos el token de la memoria local
+        this.token = null;
         return r;
     }
 
