@@ -2,62 +2,70 @@ package org.example.crypto;
 
 import io.vertx.core.Handler;
 import io.vertx.ext.web.RoutingContext;
-import java.util.Base64;
+import io.vertx.sqlclient.Pool;
 
 public class SecurityMiddleware implements Handler<RoutingContext> {
 
-    // Clave secreta compartida (el compañero de la Parte A te la pasará al instanciar este middleware)
     private final byte[] secretKey;
+    private final Pool dbClient;
 
-    public SecurityMiddleware(byte[] secretKey) {
+    public SecurityMiddleware(byte[] secretKey, Pool dbClient) {
         this.secretKey = secretKey;
+        this.dbClient = dbClient;
     }
 
     @Override
     public void handle(RoutingContext ctx) {
-        // 1. Extraemos las cabeceras de seguridad requeridas por el enfoque API REST
         String signature = ctx.request().getHeader("X-Signature");
         String nonce = ctx.request().getHeader("X-Nonce");
         String timestampStr = ctx.request().getHeader("X-Timestamp");
 
-        // Si falta alguna cabecera, bloqueamos la petición inmediatamente
         if (signature == null || nonce == null || timestampStr == null) {
             ctx.response().setStatusCode(400).end("Faltan cabeceras de seguridad requeridas.");
             return;
         }
 
-        // 2. Validamos el Timestamp para evitar paquetes caducados
+        long timestamp;
         try {
-            long timestamp = Long.parseLong(timestampStr);
-            if (!NonceStore.isTimestampValid(timestamp)) {
-                ctx.response().setStatusCode(401).end("Ataque detectado: El paquete ha caducado.");
-                return;
-            }
+            timestamp = Long.parseLong(timestampStr);
         } catch (NumberFormatException e) {
             ctx.response().setStatusCode(400).end("Formato de Timestamp inválido.");
             return;
         }
 
-        // 3. Validamos el Nonce contra la base de memoria (Protección Anti-Replay)
-        if (!NonceStore.registerAndCheckNonce(nonce)) {
-            ctx.response().setStatusCode(401).end("Ataque de Replay detectado: Nonce duplicado.");
+        if (!NonceStore.isTimestampValid(timestamp)) {
+            ctx.response().setStatusCode(401).end("Ataque detectado: El paquete ha caducado.");
             return;
         }
 
-        // 4 y 5. Verificación de Integridad y Autenticidad (HMAC) en tiempo constante
         String body = ctx.body().asString();
         if (body == null || body.isEmpty()) {
             ctx.response().setStatusCode(400).end("El cuerpo de la transacción (JSON) está vacío.");
             return;
         }
 
-        // Llamamos a la nueva función validadora de nuestro HmacSigner
-        if (!HMACSigner.verifyHmac(body, signature, secretKey)) {
+        // PRIMERO verificamos la firma HMAC — si el mensaje no es auténtico,
+        // ni siquiera consultamos/registramos el nonce en BD.
+        String messageToVerify = timestampStr + "\n" + nonce + "\n" + body;
+
+        if (!HMACSigner.verifyHmac(messageToVerify, signature, secretKey)) {
             ctx.response().setStatusCode(401).end("Firma HMAC inválida: El mensaje ha sido alterado.");
             return;
         }
 
-        // 6. ¡Todo seguro! Pasamos el control al compañero de la Parte A para que procese la transferencia
-        ctx.next();
+        // Solo si la firma es válida, comprobamos y registramos el nonce (RS3)
+        NonceStore.registerAndCheckNonce(dbClient, nonce, timestamp)
+                .onSuccess(esNuevo -> {
+                    if (!esNuevo) {
+                        ctx.response().setStatusCode(401).end("Ataque de Replay detectado: Nonce duplicado.");
+                        return;
+                    }
+
+                    ctx.next();
+                })
+                .onFailure(err -> {
+                    System.err.println("Error comprobando nonce en BD: " + err.getMessage());
+                    ctx.response().setStatusCode(500).end("Error interno de seguridad.");
+                });
     }
 }
