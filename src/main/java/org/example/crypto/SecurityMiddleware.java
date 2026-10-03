@@ -48,6 +48,7 @@ public class SecurityMiddleware implements Handler<RoutingContext> {
         // ni siquiera consultamos/registramos el nonce en BD.
         String messageToVerify = timestampStr + "\n" + nonce + "\n" + body;
 
+
         if (!HMACSigner.verifyHmac(messageToVerify, signature, secretKey)) {
             ctx.response().setStatusCode(401).end("Firma HMAC inválida: El mensaje ha sido alterado.");
             return;
