@@ -321,6 +321,7 @@ public class SecBankVerticle extends AbstractVerticle {
                         String keyB64 = row.getString("hmac_key");
                         String username = row.getString("username");
                         byte[] secretKey = java.util.Base64.getDecoder().decode(keyB64);
+                        
 
                         ctx.put("authenticatedUser", username);
 
