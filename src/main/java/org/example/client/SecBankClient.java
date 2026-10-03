@@ -45,7 +45,13 @@ public class SecBankClient {
         }
     }
 
-    private final HttpClient http = HttpClient.newHttpClient();
+    // Forzamos HTTP/1.1: por defecto HttpClient.newHttpClient() negocia HTTP/2
+    // (upgrade h2c en texto plano) y eso hace que Wireshark deje de mostrar las
+    // peticiones como texto legible (HTTP/1.1), sino como framing binario HTTP/2.
+    // Para la práctica (captura/análisis manual) necesitamos quedarnos en HTTP/1.1.
+    private final HttpClient http = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .build();
     private final ObjectMapper mapper = new ObjectMapper();
     private final String baseUrl;
     private String token;
