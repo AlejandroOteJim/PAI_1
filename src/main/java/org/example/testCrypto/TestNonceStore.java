@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestNonceStore {
+public class
+TestNonceStore {
 
     // NUEVO: necesario porque registerAndCheckNonce ahora consulta la BD, no memoria
     private static Pool crearPoolDePrueba() {

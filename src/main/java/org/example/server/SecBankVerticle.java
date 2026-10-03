@@ -255,47 +255,47 @@ public class SecBankVerticle extends AbstractVerticle {
                         .end(new JsonObject().put("error", "Error procesando JSON").encode());
             }
         });
-        // Handler 1: Validar la sesión en DB y cargar la clave HMAC en el contexto
-        // Handler 1: Validar sesión, extraer clave HMAC y ejecutar el SecurityMiddleware
-        router.post("/api/v1/transfer").handler(ctx -> {
-            // Ajusta el nombre de esta cabecera si tu cliente envía la sesión con otro nombre
-            String sessionId = ctx.request().getHeader("X-Session-Id");
-
-            if (sessionId == null || sessionId.isBlank()) {
-                ctx.response().setStatusCode(401).end("Falta cabecera de sesión");
-                return;
-            }
-
-            client.preparedQuery("SELECT hmac_key FROM sessions WHERE session_id = ? AND active = TRUE")
-                    .execute(Tuple.of(sessionId))
-                    .onSuccess(rows -> {
-                        if (!rows.iterator().hasNext()) {
-                            ctx.response().setStatusCode(401).end("Sesión inválida o expirada");
-                            return;
-                        }
-
-                        // Extraemos la clave dinámica de esta sesión específica
-                        String keyB64 = rows.iterator().next().getString("hmac_key");
-                        byte[] secretKey = java.util.Base64.getDecoder().decode(keyB64);
-
-                        // MAGIA AQUÍ: Instanciamos tu middleware original sin modificarlo
-                        // y le delegamos el contexto. Si pasa sus validaciones,
-                        // el middleware llamará a ctx.next() para saltar al Handler 2.
-                        SecurityMiddleware middleware = new SecurityMiddleware(secretKey);
-                        middleware.handle(ctx);
-                    })
-                    .onFailure(err -> ctx.response().setStatusCode(500).end("Error en BD"));
-        });
-
-        // Handler 2: Lógica de negocio de la transferencia
-        router.post("/api/v1/transfer").handler(ctx -> {
-            // Si la petición ha llegado aquí, significa que tu SecurityMiddleware
-            // original comprobó las cabeceras, verificó el HMAC, Nonce, Timestamp y llamó a ctx.next()
-
-            // Para pasar los tests de integración basta con devolver un 200 OK:
-            ctx.response().setStatusCode(200).putHeader("content-type", "application/json")
-                    .end(new JsonObject().put("status", "Transferencia realizada con éxito").encode());
-        });
+//        // Handler 1: Validar la sesión en DB y cargar la clave HMAC en el contexto
+//        // Handler 1: Validar sesión, extraer clave HMAC y ejecutar el SecurityMiddleware
+//        router.post("/api/v1/transfer").handler(ctx -> {
+//            // Ajusta el nombre de esta cabecera si tu cliente envía la sesión con otro nombre
+//            String sessionId = ctx.request().getHeader("X-Session-Id");
+//
+//            if (sessionId == null || sessionId.isBlank()) {
+//                ctx.response().setStatusCode(401).end("Falta cabecera de sesión");
+//                return;
+//            }
+//
+//            client.preparedQuery("SELECT hmac_key FROM sessions WHERE session_id = ? AND active = TRUE")
+//                    .execute(Tuple.of(sessionId))
+//                    .onSuccess(rows -> {
+//                        if (!rows.iterator().hasNext()) {
+//                            ctx.response().setStatusCode(401).end("Sesión inválida o expirada");
+//                            return;
+//                        }
+//
+//                        // Extraemos la clave dinámica de esta sesión específica
+//                        String keyB64 = rows.iterator().next().getString("hmac_key");
+//                        byte[] secretKey = java.util.Base64.getDecoder().decode(keyB64);
+//
+//                        // MAGIA AQUÍ: Instanciamos tu middleware original sin modificarlo
+//                        // y le delegamos el contexto. Si pasa sus validaciones,
+//                        // el middleware llamará a ctx.next() para saltar al Handler 2.
+//                        SecurityMiddleware middleware = new SecurityMiddleware(secretKey, this.client);
+//                        middleware.handle(ctx);
+//                    })
+//                    .onFailure(err -> ctx.response().setStatusCode(500).end("Error en BD"));
+//        });
+//
+//        // Handler 2: Lógica de negocio de la transferencia
+//        router.post("/api/v1/transfer").handler(ctx -> {
+//            // Si la petición ha llegado aquí, significa que tu SecurityMiddleware
+//            // original comprobó las cabeceras, verificó el HMAC, Nonce, Timestamp y llamó a ctx.next()
+//
+//            // Para pasar los tests de integración basta con devolver un 200 OK:
+//            ctx.response().setStatusCode(200).putHeader("content-type", "application/json")
+//                    .end(new JsonObject().put("status", "Transferencia realizada con éxito").encode());
+//        });
 
         // Handler 1: Extraer sesión, validar en BD (con JOIN a users) y ejecutar middleware
         router.post("/api/v1/transfer").handler(ctx -> {
