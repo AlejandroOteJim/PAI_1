@@ -34,7 +34,7 @@ TestNonceStore {
     @Test
     public void pruebaDeteccionAtaqueReplay() throws Exception {
         Pool pool = crearPoolDePrueba(); // NUEVO
-        String noncePrueba = "nonce-unico-test-12345";
+        String noncePrueba = "nonce-test-" + java.util.UUID.randomUUID();
         long timestampPrueba = Instant.now().getEpochSecond(); // NUEVO: el método ahora pide timestamp también
 
         // Primer intento legítimo
