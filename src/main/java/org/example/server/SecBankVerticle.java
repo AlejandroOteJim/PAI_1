@@ -14,6 +14,7 @@ import io.vertx.sqlclient.Tuple;
 import org.example.crypto.HMACSigner;
 import org.example.crypto.PasswordHasher;
 import org.example.crypto.SecurityMiddleware;
+import org.example.db.DataBaseInitializer;
 
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -26,9 +27,11 @@ public class SecBankVerticle extends AbstractVerticle {
 
     @Override
     public void start(Promise<Void> startPromise) {
-        setupDatabase();
-
-        setupHttpServer()
+        DataBaseInitializer.init(vertx)
+                .compose(v -> {
+                    setupDatabase();
+                    return setupHttpServer();
+                })
                 .onSuccess(server -> {
                     System.out.println("Servidor SecBank desplegado en HTTP puerto 8080 (Texto plano).");
                     startPromise.complete();
@@ -321,7 +324,7 @@ public class SecBankVerticle extends AbstractVerticle {
                         String keyB64 = row.getString("hmac_key");
                         String username = row.getString("username");
                         byte[] secretKey = java.util.Base64.getDecoder().decode(keyB64);
-                        
+
 
                         ctx.put("authenticatedUser", username);
 
